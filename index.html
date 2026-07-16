@@ -981,6 +981,18 @@
             width: 120px;
         }
 
+        /* Preamp : la colonne de droite (Metal/AC) n'a que 2 mots contre
+           7 à gauche (Stack...Clean). Sans ceci, elle se centre en bloc
+           au milieu au lieu de s'étaler sur toute la hauteur comme la
+           colonne de gauche. */
+        #block-preamp .type-labels-outer-container {
+            align-items: stretch;
+        }
+
+        #block-preamp .col-names-right {
+            justify-content: space-between;
+        }
+
         /* ============================================================
            MODE CLAIR — surcharges appliquées quand <html> a la classe
            "light-theme". Les composants "hardware" (power button, LED,
