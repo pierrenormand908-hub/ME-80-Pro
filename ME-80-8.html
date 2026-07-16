@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Blocs d'effets ME-80</title>
+
+    <!-- Icône affichée sur l'écran d'accueil de l'iPhone (remplace le nom de fichier ci-dessous) -->
+    <link rel="apple-touch-icon" href="icone-mooer.png">
+
+    <!-- Fait tourner l'app en plein écran, sans la barre d'adresse Safari, quand elle est lancée depuis l'écran d'accueil -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Nom affiché sous l'icône sur l'écran d'accueil -->
+    <meta name="apple-mobile-web-app-title" content="Mooer Effects">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            background: #121416;
+            font-family: 'Arial', sans-serif;
+            color: #e0e0e0;
+            user-select: none;
+        }
+
+        /* Conteneur de scroll séparé du body : évite le bug iOS où les
+           éléments "position: fixed" bougent/rebondissent pendant le
+           scroll en mode PWA (rubber-banding de Safari). La barre de
+           presets reste donc réellement immobile. */
+        .app-scroll {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: 90px; /* ajusté dynamiquement en JS selon la hauteur réelle de la barre */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* ============================================================
+           Barre de presets fixe en haut de la page
+           ============================================================ */
+        .preset-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: linear-gradient(145deg, #25292e, #101214);
+            border-bottom: 2px solid #3a3f44;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+            padding: 12px 56px;
+            box-sizing: border-box;
+        }
+
+        .theme-toggle-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #15181b;
+            border: 2px solid #3a3f44;
+            color: #fff;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+            z-index: 1001;
+        }
+
+        .theme-toggle-btn:hover {
+            border-color: #666;
+        }
+
+        .theme-toggle-btn.active-theme {
+            border-color: #ff2222;
+            color: #ff2222;
+        }
+
+        .theme-btn-light {
+            left: 10px;
+        }
+
+        .theme-btn-dark {
+            right: 10px;
+        }
+
+        .preset-bar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        .preset-buttons-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .preset-io-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .preset-textarea {
+            width: 100%;
+            max-width: 480px;
+            min-height: 90px;
+            background: #000;
+            border: 1.5px solid #3a3f44;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            line-height: 1.4;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .preset-textarea:focus {
+            border-color: #ff2222;
+        }
+
+        .preset-io-status {
+            font-size: 0.7rem;
+            color: #888;
+            min-height: 14px;
+            text-align: center;
+        }
+
+        .preset-io-status.error {
+            color: #ff5555;
+        }
+
+        .preset-io-status.success {
+            color: #7cd97c;
+        }
+
+        .preset-bar-title {
+            font-size: 0.8rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #fff;
+            text-transform: uppercase;
+            border-right: 2px solid #3a3f44;
+            padding-right: 14px;
+            margin-right: 2px;
+            white-space: nowrap;
+        }
+
+        #presetSelectWrapper {
+            width: 220px;
+        }
+
+        #presetSelectWrapper .custom-options {
+            z-index: 1010;
+            max-height: 220px;
+        }
+
+        .preset-btn {
+            background: #15181b;
+            color: #fff;
+            border: 2px solid #3a3f44;
+            border-radius: 6px;
+            padding: 7px 16px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+            white-space: nowrap;
+        }
+
+        .preset-btn:hover {
+            border-color: #ff2222;
+        }
+
+        .preset-btn.save-btn {
+            color: #ff2222;
+        }
+
+        .preset-btn.delete-btn {
+            color: #999;
+        }
+
+        .preset-btn.delete-btn:hover {
+            border-color: #888;
+            color: #ccc;
+        }
+
+        .preset-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            border-color: #3a3f44 !important;
+            color: #666 !important;
+        }
+
+        /* ============================================================
+           Fenêtres modales (remplacent prompt()/confirm() natifs,
+           incompatibles avec le mode PWA sur iOS)
+           ============================================================ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: linear-gradient(145deg, #25292e, #101214);
+            border: 2px solid #3a3f44;
+            border-radius: 14px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+            padding: 24px;
+            width: 100%;
+            max-width: 320px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .modal-text {
+            font-size: 0.85rem;
+            color: #bbb;
+            margin-bottom: 18px;
+            word-break: break-word;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: #000;
+            border: 1.5px solid #3a3f44;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px;
+            box-sizing: border-box;
+            outline: none;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .modal-input:focus {
+            border-color: #ff2222;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 10px 0;
+            border-radius: 6px;
+            border: 2px solid #3a3f44;
+            background: #15181b;
+            color: #ccc;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .modal-btn.confirm {
+            color: #ff2222;
+            border-color: #ff2222;
+        }
+
+        .modal-btn.confirm.danger {
+            color: #ff5555;
+            border-color: #ff5555;
+        }
+
+        .modal-btn:hover {
+            background: #1e2226;
+        }
+
+        /* Boîtier du bloc d'effet */
+        .effect-block {
+            background: linear-gradient(145deg, #25292e, #101214);
+            border: 2px solid #3a3f44;
+            border-radius: 14px;
+            padding: 15px 20px;
+            width: 520px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+            text-align: center;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Barre supérieure */
+        .header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 0 10px;
+            position: relative;
+            z-index: 50;
+        }
+
+        /* Système d'alimentation (Bypass) */
+        .power-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .power-btn {
+            width: 38px;
+            height: 38px;
+            background: radial-gradient(circle, #2a2d32 0%, #111315 100%);
+            border: 3px solid #000;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,255,255,0.15);
+            transition: transform 0.1s, box-shadow 0.1s;
+            position: relative;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .power-symbol {
+            width: 16px;
+            height: 16px;
+            position: relative;
+            box-sizing: border-box;
+            display: inline-block;
+        }
+
+        .power-symbol::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border: 2px solid #8a9096;
+            border-radius: 50%;
+            clip-path: polygon(0% 20%, 100% 20%, 100% 100%, 0% 100%);
+            box-sizing: border-box;
+            transition: border-color 0.1s;
+        }
+
+        .power-symbol::after {
+            content: "";
+            position: absolute;
+            top: 0px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 7px;
+            background-color: #8a9096;
+            transition: background-color 0.1s;
+        }
+
+        .power-btn.active {
+            transform: scale(0.92) translateY(2px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.8), inset 0 3px 5px rgba(0,0,0,0.8);
+            background: radial-gradient(circle, #1a1c1e 0%, #08090a 100%);
+        }
+
+        .power-btn.active .power-symbol::before {
+            border-color: #b0b5bc;
+        }
+        .power-btn.active .power-symbol::after {
+            background-color: #b0b5bc;
+        }
+
+        .led-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #3f0505;
+            border: 2px solid #111;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+
+        .led-indicator.active {
+            background-color: #ff2222;
+            box-shadow: 0 0 10px #ff2222, 0 0 20px rgba(255, 34, 34, 0.6), inset 0 1px 2px rgba(255,255,255,0.5);
+        }
+
+        .block-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            color: #fff;
+            text-transform: uppercase;
+            border-bottom: 2px solid #ff2222;
+            padding-bottom: 4px;
+            margin: 0;
+            display: inline-block;
+            transition: border-color 0.3s, color 0.3s;
+        }
+
+        /* Structure */
+        .main-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+
+        /* Quand bypass est actif */
+        .effect-block.bypass .main-layout {
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+        .effect-block.bypass .block-title {
+            color: #555;
+            border-color: #3a3f44;
+        }
+
+        /* Section Type */
+        .type-section-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 0 15px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .me80-container-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .type-label-main {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #fff;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            letter-spacing: 1.5px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .knob-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Layout du sélecteur de Type */
+        .type-labels-outer-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .col-names-left {
+            display: flex;
+            flex-direction: column;
+            text-align: right;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .col-names-right {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            align-items: flex-start;
+            gap: 2px;
+        }
+
+        .amp-label {
+            font-size: 0.52rem;
+            font-weight: bold;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            line-height: 1.1;
+            transition: color 0.3s, text-shadow 0.3s;
+            white-space: nowrap;
+        }
+
+        .amp-label.active {
+            color: #ff2222;
+            text-shadow: 0 0 5px rgba(255, 34, 34, 0.6);
+        }
+
+        /* Dropdown (Rectangle) centré sous le titre */
+        .custom-select-wrapper {
+            position: relative;
+            width: 150px;
+            z-index: 110;
+        }
+
+        .custom-select-trigger {
+            background: #15181b;
+            color: #fff;
+            border: 2px solid #3a3f44;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+            transition: border-color 0.2s;
+        }
+
+        .custom-select-trigger:hover,
+        .custom-select-wrapper.open .custom-select-trigger {
+            border-color: #ff2222;
+        }
+
+        .custom-select-trigger::after {
+            content: "▼";
+            font-size: 0.6rem;
+            color: #888;
+            transition: transform 0.2s;
+        }
+
+        .custom-select-wrapper.open .custom-select-trigger::after {
+            transform: rotate(180deg);
+            color: #ff2222;
+        }
+
+        .custom-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1a1d20;
+            border: 2px solid #3a3f44;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.8);
+            display: none;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-top: -2px;
+            z-index: 120;
+        }
+
+        .custom-select-wrapper.open .custom-options {
+            display: block;
+        }
+
+        .custom-option {
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #ccc;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .custom-option:hover {
+            background: #25292e;
+            color: #fff;
+        }
+
+        .custom-option.selected {
+            background: #ff2222;
+            color: #fff;
+        }
+
+        /* Les potentiomètres du bas */
+        .bottom-knobs-row {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            padding: 0 10px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .knob-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 28%;
+        }
+
+        .knob-label-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 24px;
+            justify-content: center;
+        }
+
+        .knob-label-main {
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            line-height: 1;
+        }
+
+        .knob-label-sub {
+            font-size: 0.55rem;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 1px;
+        }
+
+        .value-input {
+            width: 34px;
+            height: 22px;
+            background: #000;
+            border: 1.5px solid #3a3f44;
+            border-radius: 4px;
+            color: #ff2222;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        /* Champs élargis acceptant chiffres ET lettres (ex: Rate/Key, Time) */
+        .value-input.value-input--wide {
+            width: 58px;
+        }
+
+        .value-input::-webkit-outer-spin-button,
+        .value-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .value-input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .value-input:focus {
+            border-color: #ff2222;
+            box-shadow: 0 0 5px rgba(255, 34, 34, 0.5);
+        }
+
+        .knob {
+            width: 45px;
+            height: 45px;
+            background: #000;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .knob-top {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            position: relative;
+            background:
+                repeating-radial-gradient(
+                    circle at 50% 50%,
+                    rgba(200,200,200,.2) 0%,
+                    rgba(200,200,200,.2) 2%,
+                    transparent 2%,
+                    transparent 3%,
+                    rgba(200,200,200,.2) 3%,
+                    transparent 3%
+                ),
+                conic-gradient(
+                    white 0%,
+                    silver 10%,
+                    white 35%,
+                    silver 45%,
+                    white 60%,
+                    silver 70%,
+                    white 80%,
+                    silver 95%,
+                    white 100%
+                );
+            box-shadow:
+                0 0px 8px #0005,
+                0 -0px 8px #fff2;
+            outline: 1px solid #fff;
+            outline-offset: -2px;
+        }
+
+        .knob-top::before {
+            content: "";
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle,
+                rgba(0,0,0,0.8) 0%,
+                rgba(0,0,0,0.4) 40%,
+                rgba(0,0,0,0) 100%
+            );
+            z-index: -1;
+        }
+
+        .knob-top::after {
+            content: "";
+            position: absolute;
+            top: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 10px;
+            background: #000;
+            border-radius: 2px;
+        }
+
+        /* ============================================================
+           Variante de mise en page "inline" : utilisée par les blocs où
+           le sélecteur de Type est à gauche (knob + labels) et le
+           dropdown est à droite, sur une seule rangée (ex: EQ/FX2).
+           La variante par défaut (sans cette classe) reste celle des
+           blocs COMP/FX1 et OD/DS (dropdown en haut, type en dessous).
+           ============================================================ */
+        .effect-block.layout-inline {
+            padding: 20px;
+        }
+
+        .effect-block.layout-inline .header-container {
+            margin-bottom: 20px;
+        }
+
+        .effect-block.layout-inline .block-title {
+            padding-bottom: 8px;
+        }
+
+        .effect-block.layout-inline .main-layout {
+            gap: 30px;
+        }
+
+        .effect-block.layout-inline .type-section-row {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0;
+        }
+
+        .effect-block.layout-inline .type-label-main {
+            text-align: left;
+            padding-left: 2px;
+            margin-bottom: 12px;
+        }
+
+        .effect-block.layout-inline .me80-layout {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .effect-block.layout-inline .custom-select-wrapper {
+            width: 120px;
+        }
+
+        .effect-block.layout-inline .knob-label-container {
+            height: 28px;
+        }
+
+        .effect-block.layout-inline .value-input {
+            height: 24px;
+        }
+
+        /* Largeur des potentiomètres du bas quand il y en a 4 au lieu de 3 */
+        .knob-wrapper.knob-wrapper--quad {
+            width: 22%;
+        }
+
+        /* ============================================================
+           Bloc MOD : même structure que COMP/FX1 et OD/DS (mise en page
+           "stacked" par défaut), mais avec un accent orange/rouge au
+           lieu du rouge standard, et des étiquettes de knob combinées
+           sur deux lignes (Rate / Key, etc.). Surcharges scopées à
+           #block-mod uniquement.
+           ============================================================ */
+        #block-mod .block-title {
+            border-bottom-color: #da3003;
+        }
+
+        #block-mod.bypass .block-title {
+            border-bottom-color: #3a3f44;
+        }
+
+        #block-mod .led-indicator {
+            background-color: #300b03;
+        }
+
+        #block-mod .led-indicator.active {
+            background-color: #ff2200;
+            box-shadow: 0 0 10px #ff0000, 0 0 20px rgba(255, 0, 0, 0.6), inset 0 1px 2px rgba(255,255,255,0.5);
+        }
+
+        #block-mod .amp-label.active {
+            color: #ff4000;
+            text-shadow: 0 0 5px rgba(255, 54, 0, 0.6);
+        }
+
+        #block-mod .custom-select-trigger:hover,
+        #block-mod .custom-select-wrapper.open .custom-select-trigger {
+            border-color: #df1a05;
+        }
+
+        #block-mod .custom-select-wrapper.open .custom-select-trigger::after {
+            color: #df3305;
+        }
+
+        #block-mod .custom-option.selected {
+            background: #e44708;
+        }
+
+        #block-mod .value-input {
+            color: #e93201;
+        }
+
+        #block-mod .value-input:focus {
+            border-color: #d73905;
+            box-shadow: 0 0 5px rgba(184, 47, 10, 0.5);
+        }
+
+        #block-mod .knob-label-main {
+            font-size: 0.62rem;
+            line-height: 1.1;
+            letter-spacing: 0.5px;
+        }
+
+        /* ============================================================
+           Bloc REVERB / PEDAL FX : deux mini-sections indépendantes
+           côte à côte, chacune avec son propre bouton power + LED.
+           Réutilise les mêmes composants visuels (power-btn, knob,
+           value-input, dropdown) que tous les autres blocs.
+           ============================================================ */
+        .dual-columns-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+            padding: 0 15px;
+            box-sizing: border-box;
+            gap: 20px;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 48%;
+        }
+
+        .col-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            color: #fff;
+            text-transform: uppercase;
+            border-bottom: 2px solid #ff2222;
+            padding-bottom: 4px;
+            margin-bottom: 14px;
+            display: inline-block;
+        }
+
+        .mini-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            transition: opacity 0.3s;
+        }
+
+        .mini-content.bypass-mini {
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+        .mini-knob-container {
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+
+        .mini-knob-container .knob-container {
+            position: absolute;
+            top: 17.5px;
+            left: 17.5px;
+        }
+
+        .mini-label-top {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .mini-label-bl {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+
+        .mini-label-br {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+
+        #block-reverb-pedalfx .custom-select-wrapper {
+            width: 120px;
+        }
+
+        /* ============================================================
+           MODE CLAIR — surcharges appliquées quand <html> a la classe
+           "light-theme". Les composants "hardware" (power button, LED,
+           knobs, afficheurs LCD des value-input) restent identiques
+           dans les deux modes, comme sur une vraie pédale. Seuls le
+           fond de page, les boîtiers, les textes et les menus changent.
+           ============================================================ */
+        html.light-theme body {
+            background: #eef0f2;
+            color: #20232a;
+        }
+
+        html.light-theme .effect-block {
+            background: linear-gradient(145deg, #f6f7f9, #dfe2e6);
+            border-color: #c3c7cd;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        html.light-theme .block-title,
+        html.light-theme .type-label-main,
+        html.light-theme .knob-label-main,
+        html.light-theme .preset-bar-title,
+        html.light-theme .modal-title,
+        html.light-theme .col-title {
+            color: #20232a;
+        }
+
+        html.light-theme .knob-label-sub {
+            color: #767c85;
+        }
+
+        html.light-theme .amp-label {
+            color: #9aa0a8;
+        }
+
+        html.light-theme .custom-select-trigger {
+            background: #fff;
+            color: #20232a;
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .custom-select-trigger::after {
+            color: #888;
+        }
+
+        html.light-theme .custom-options {
+            background: #fff;
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .custom-option {
+            color: #333;
+        }
+
+        html.light-theme .custom-option:hover {
+            background: #eef0f2;
+            color: #111;
+        }
+
+        html.light-theme .value-input {
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .preset-bar {
+            background: linear-gradient(145deg, #f6f7f9, #dfe2e6);
+            border-bottom-color: #c3c7cd;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        html.light-theme .preset-bar-title {
+            border-right-color: #c3c7cd;
+        }
+
+        html.light-theme .preset-btn {
+            background: #fff;
+            color: #20232a;
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .preset-btn.save-btn {
+            color: #d81b1b;
+        }
+
+        html.light-theme .preset-btn.delete-btn {
+            color: #777;
+        }
+
+        html.light-theme .preset-btn:disabled {
+            color: #bbb !important;
+            border-color: #ddd !important;
+        }
+
+        html.light-theme .preset-textarea {
+            background: #fff;
+            color: #20232a;
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .preset-io-status {
+            color: #666;
+        }
+
+        html.light-theme .modal-box {
+            background: linear-gradient(145deg, #f6f7f9, #dfe2e6);
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .modal-text {
+            color: #555;
+        }
+
+        html.light-theme .modal-input {
+            background: #fff;
+            color: #20232a;
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .modal-btn {
+            background: #fff;
+            color: #333;
+            border-color: #c3c7cd;
+        }
+
+        html.light-theme .modal-btn:hover {
+            background: #f0f1f3;
+        }
+
+        html.light-theme .theme-toggle-btn {
+            background: #fff;
+            border-color: #c3c7cd;
+            color: #20232a;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===================== BARRE DE PRESETS FIXE ===================== -->
+    <div class="preset-bar">
+        <button class="theme-toggle-btn theme-btn-light" id="lightModeBtn" title="Mode clair">☀️</button>
+        <button class="theme-toggle-btn theme-btn-dark" id="darkModeBtn" title="Mode sombre">🌙</button>
+
+        <div class="preset-bar-inner">
+            <span class="preset-bar-title">Presets</span>
+
+            <div class="custom-select-wrapper" id="presetSelectWrapper">
+                <div class="custom-select-trigger" id="presetSelectTrigger">
+                    <span id="presetSelectText">-- Aucun preset --</span>
+                </div>
+                <div class="custom-options" id="presetOptionsList">
+                    <!-- rempli dynamiquement en JS -->
+                </div>
+            </div>
+
+            <div class="preset-buttons-row">
+                <button class="preset-btn save-btn" id="savePresetBtn">Enregistrer</button>
+                <button class="preset-btn delete-btn" id="deletePresetBtn" disabled>Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale : Enregistrer un preset -->
+    <div class="modal-overlay" id="saveModalOverlay">
+        <div class="modal-box">
+            <div class="modal-title">Enregistrer le preset</div>
+            <input type="text" class="modal-input" id="presetNameInput" placeholder="Nom du preset" maxlength="40">
+            <div class="modal-buttons">
+                <button class="modal-btn" id="saveModalCancel">Annuler</button>
+                <button class="modal-btn confirm" id="saveModalConfirm">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale : Supprimer un preset -->
+    <div class="modal-overlay" id="deleteModalOverlay">
+        <div class="modal-box">
+            <div class="modal-title">Supprimer ce preset ?</div>
+            <div class="modal-text" id="deleteModalText"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn" id="deleteModalCancel">Annuler</button>
+                <button class="modal-btn confirm danger" id="deleteModalConfirm">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteneur de scroll séparé (voir explication CSS .app-scroll) -->
+    <div class="app-scroll" id="appScroll">
+
+    <!-- ===================== BLOC 1 : COMP / FX1 ===================== -->
+    <div class="effect-block" id="block-comp" data-block-id="comp">
+
+        <div class="header-container">
+            <div class="power-control">
+                <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver le bloc COMP/FX1">
+                    <span class="power-symbol"></span>
+                </button>
+                <div class="led-indicator active" data-role="powerLed"></div>
+            </div>
+
+            <div class="block-title">COMP / FX1</div>
+
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="main-layout">
+
+            <div class="type-section-row">
+
+                <div class="custom-select-wrapper" data-role="selectWrapper">
+                    <div class="custom-select-trigger" data-role="selectTrigger">
+                        <span data-role="triggerText">Comp</span>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option selected" data-value="comp">Comp</div>
+                        <div class="custom-option" data-value="twah-up">T. Wah Up</div>
+                        <div class="custom-option" data-value="twah-down">T. Wah Down</div>
+                        <div class="custom-option" data-value="octave">Octave</div>
+                        <div class="custom-option" data-value="slow-gear">Slow Gear</div>
+                        <div class="custom-option" data-value="defretter">Defretter</div>
+                        <div class="custom-option" data-value="ring-mod">Ring Mod</div>
+                        <div class="custom-option" data-value="ac-sim">Ac. Sim</div>
+                        <div class="custom-option" data-value="single-hum">Single &gt; Hum</div>
+                        <div class="custom-option" data-value="hum-single">Hum &gt; Single</div>
+                        <div class="custom-option" data-value="solo">Solo</div>
+                    </div>
+                </div>
+
+                <div class="me80-container-left">
+                    <span class="type-label-main">Type</span>
+
+                    <div class="type-labels-outer-container">
+                        <div class="col-names-left">
+                            <span class="amp-label" data-label="defretter">Defretter</span>
+                            <span class="amp-label" data-label="slow-gear">Slow Gear</span>
+                            <span class="amp-label" data-label="octave">Octave</span>
+                            <span class="amp-label" data-label="twah-down">T. Wah Down</span>
+                            <span class="amp-label" data-label="twah-up">T. Wah Up</span>
+                            <span class="amp-label active" data-label="comp">Comp</span>
+                        </div>
+
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(-135deg);"><div class="knob-top"></div></div>
+                        </div>
+
+                        <div class="col-names-right">
+                            <span class="amp-label" data-label="ring-mod">Ring Mod</span>
+                            <span class="amp-label" data-label="ac-sim">Ac. Sim</span>
+                            <span class="amp-label" data-label="single-hum">Single &gt; Hum</span>
+                            <span class="amp-label" data-label="hum-single">Hum &gt; Single</span>
+                            <span class="amp-label" data-label="solo">Solo</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bottom-knobs-row">
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Sustain</span>
+                        <span class="knob-label-sub">Sens</span>
+                    </div>
+                    <div class="knob" data-knob="sustain" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="sustain" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Attack</span>
+                        <span class="knob-label-sub">Tone</span>
+                    </div>
+                    <div class="knob" data-knob="attack" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="attack" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Level</span>
+                    </div>
+                    <div class="knob" data-knob="level" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="level" min="1" max="100" value="35">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===================== BLOC 2 : OD / DS ===================== -->
+    <div class="effect-block" id="block-oddS" data-block-id="oddS">
+
+        <div class="header-container">
+            <div class="power-control">
+                <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver le bloc OD/DS">
+                    <span class="power-symbol"></span>
+                </button>
+                <div class="led-indicator active" data-role="powerLed"></div>
+            </div>
+
+            <div class="block-title">OD / DS</div>
+
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="main-layout">
+
+            <div class="type-section-row">
+
+                <div class="custom-select-wrapper" data-role="selectWrapper">
+                    <div class="custom-select-trigger" data-role="selectTrigger">
+                        <span data-role="triggerText">Boost</span>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option" data-value="distortion">Distortion</div>
+                        <div class="custom-option" data-value="turbo-od">Turbo OD</div>
+                        <div class="custom-option" data-value="blues">Blues</div>
+                        <div class="custom-option" data-value="t-scream">T-Scream</div>
+                        <div class="custom-option" data-value="overdrive">Overdrive</div>
+                        <div class="custom-option selected" data-value="boost">Boost</div>
+                        <div class="custom-option" data-value="turbo-ds">Turbo DS</div>
+                        <div class="custom-option" data-value="metal-ds">Metal DS</div>
+                        <div class="custom-option" data-value="core">Core</div>
+                        <div class="custom-option" data-value="fuzz">Fuzz</div>
+                        <div class="custom-option" data-value="oct-fuzz">Oct Fuzz</div>
+                    </div>
+                </div>
+
+                <div class="me80-container-left">
+                    <span class="type-label-main">Type</span>
+
+                    <div class="type-labels-outer-container">
+                        <div class="col-names-left">
+                            <span class="amp-label" data-label="distortion">Distortion</span>
+                            <span class="amp-label" data-label="turbo-od">Turbo OD</span>
+                            <span class="amp-label" data-label="blues">Blues</span>
+                            <span class="amp-label" data-label="t-scream">T-Scream</span>
+                            <span class="amp-label" data-label="overdrive">Overdrive</span>
+                            <span class="amp-label active" data-label="boost">Boost</span>
+                        </div>
+
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(-135deg);"><div class="knob-top"></div></div>
+                        </div>
+
+                        <div class="col-names-right">
+                            <span class="amp-label" data-label="turbo-ds">Turbo DS</span>
+                            <span class="amp-label" data-label="metal-ds">Metal DS</span>
+                            <span class="amp-label" data-label="core">Core</span>
+                            <span class="amp-label" data-label="fuzz">Fuzz</span>
+                            <span class="amp-label" data-label="oct-fuzz">Oct Fuzz</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bottom-knobs-row">
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Drive</span>
+                    </div>
+                    <div class="knob" data-knob="drive" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="drive" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Tone</span>
+                    </div>
+                    <div class="knob" data-knob="tone" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="tone" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Level</span>
+                    </div>
+                    <div class="knob" data-knob="level" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="level" min="1" max="100" value="35">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===================== BLOC 3 : EQ / FX2 ===================== -->
+    <div class="effect-block layout-inline" id="block-eq" data-block-id="eq">
+
+        <div class="header-container">
+            <div class="power-control">
+                <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver le bloc EQ/FX2">
+                    <span class="power-symbol"></span>
+                </button>
+                <div class="led-indicator active" data-role="powerLed"></div>
+            </div>
+
+            <div class="block-title">EQ / FX2</div>
+
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="main-layout">
+
+            <div class="type-section-row">
+
+                <div class="me80-container-left">
+                    <span class="type-label-main">Type</span>
+
+                    <div class="me80-layout">
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(135deg);"><div class="knob-top"></div></div>
+                        </div>
+
+                        <div class="col-names-right">
+                            <span class="amp-label" data-label="phaser">Phaser</span>
+                            <span class="amp-label" data-label="tremolo">Tremolo</span>
+                            <span class="amp-label" data-label="boost">Boost</span>
+                            <span class="amp-label" data-label="delay">Delay</span>
+                            <span class="amp-label" data-label="chorus">Chorus</span>
+                            <span class="amp-label active" data-label="eq">EQ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="custom-select-wrapper" data-role="selectWrapper">
+                    <div class="custom-select-trigger" data-role="selectTrigger">
+                        <span data-role="triggerText">EQ</span>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option" data-value="phaser">Phaser</div>
+                        <div class="custom-option" data-value="tremolo">Tremolo</div>
+                        <div class="custom-option" data-value="boost">Boost</div>
+                        <div class="custom-option" data-value="delay">Delay</div>
+                        <div class="custom-option" data-value="chorus">Chorus</div>
+                        <div class="custom-option selected" data-value="eq">EQ</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bottom-knobs-row">
+                <div class="knob-wrapper knob-wrapper--quad">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Bass</span>
+                    </div>
+                    <div class="knob" data-knob="bass" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="bass" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--quad">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Middle</span>
+                        <span class="knob-label-sub">Rate/Time</span>
+                    </div>
+                    <div class="knob" data-knob="middle" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="middle" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--quad">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Treble</span>
+                        <span class="knob-label-sub">Depth/FB</span>
+                    </div>
+                    <div class="knob" data-knob="treble" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="treble" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--quad">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Level</span>
+                        <span class="knob-label-sub">E.Level</span>
+                    </div>
+                    <div class="knob" data-knob="level" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="level" min="1" max="100" value="35">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===================== BLOC 4 : MOD ===================== -->
+    <div class="effect-block" id="block-mod" data-block-id="mod">
+
+        <div class="header-container">
+            <div class="power-control">
+                <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver le bloc MOD">
+                    <span class="power-symbol"></span>
+                </button>
+                <div class="led-indicator active" data-role="powerLed"></div>
+            </div>
+
+            <div class="block-title">MOD</div>
+
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="main-layout">
+
+            <div class="type-section-row">
+
+                <div class="custom-select-wrapper" data-role="selectWrapper">
+                    <div class="custom-select-trigger" data-role="selectTrigger">
+                        <span data-role="triggerText">Chorus</span>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option" data-value="pitch-shift">Pitch Shift</div>
+                        <div class="custom-option" data-value="vibrato">Vibrato</div>
+                        <div class="custom-option selected" data-value="chorus">Chorus</div>
+                        <div class="custom-option" data-value="tremolo">Tremolo</div>
+                        <div class="custom-option" data-value="flanger">Flanger</div>
+                        <div class="custom-option" data-value="phaser">Phaser</div>
+                        <div class="custom-option" data-value="harmonist">Harmonist</div>
+                        <div class="custom-option" data-value="rotary">Rotary</div>
+                        <div class="custom-option" data-value="uni-v">Uni-V</div>
+                        <div class="custom-option" data-value="delay">Delay</div>
+                        <div class="custom-option" data-value="overtone">Overtone</div>
+                    </div>
+                </div>
+
+                <div class="me80-container-left">
+                    <span class="type-label-main">Type</span>
+
+                    <div class="type-labels-outer-container">
+                        <div class="col-names-left">
+                            <span class="amp-label" data-label="pitch-shift">Pitch Shift</span>
+                            <span class="amp-label" data-label="vibrato">Vibrato</span>
+                            <span class="amp-label active" data-label="chorus">Chorus</span>
+                            <span class="amp-label" data-label="tremolo">Tremolo</span>
+                            <span class="amp-label" data-label="flanger">Flanger</span>
+                            <span class="amp-label" data-label="phaser">Phaser</span>
+                        </div>
+
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(-60deg);"><div class="knob-top"></div></div>
+                        </div>
+
+                        <div class="col-names-right">
+                            <span class="amp-label" data-label="harmonist">Harmonist</span>
+                            <span class="amp-label" data-label="rotary">Rotary</span>
+                            <span class="amp-label" data-label="uni-v">Uni-V</span>
+                            <span class="amp-label" data-label="delay">Delay</span>
+                            <span class="amp-label" data-label="overtone">Overtone</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bottom-knobs-row">
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Rate<br>Key</span>
+                    </div>
+                    <div class="knob" data-knob="rate" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="text" class="value-input value-input--wide" data-input="rate" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Depth<br>Harmony</span>
+                    </div>
+                    <div class="knob" data-knob="depth" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="depth" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">E.Level<br>Resonance</span>
+                    </div>
+                    <div class="knob" data-knob="level" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="level" min="1" max="100" value="35">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===================== BLOC 5 : DELAY ===================== -->
+    <div class="effect-block" id="block-delay" data-block-id="delay">
+
+        <div class="header-container">
+            <div class="power-control">
+                <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver le bloc DELAY">
+                    <span class="power-symbol"></span>
+                </button>
+                <div class="led-indicator active" data-role="powerLed"></div>
+            </div>
+
+            <div class="block-title">DELAY</div>
+
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="main-layout">
+
+            <div class="type-section-row">
+
+                <div class="custom-select-wrapper" data-role="selectWrapper">
+                    <div class="custom-select-trigger" data-role="selectTrigger">
+                        <span data-role="triggerText">1-99ms</span>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option" data-value="modulate">Modulate</div>
+                        <div class="custom-option" data-value="tape">Tape</div>
+                        <div class="custom-option" data-value="analog">Analog</div>
+                        <div class="custom-option" data-value="500-6000ms">500-6000ms</div>
+                        <div class="custom-option" data-value="100-500ms">100-500ms</div>
+                        <div class="custom-option selected" data-value="1-99ms">1-99ms</div>
+                        <div class="custom-option" data-value="reverse">Reverse</div>
+                        <div class="custom-option" data-value="cho-delay">Cho + Delay</div>
+                        <div class="custom-option" data-value="tempo">Tempo</div>
+                        <div class="custom-option" data-value="tera-echo">Tera Echo</div>
+                        <div class="custom-option" data-value="phrase-loop">Phrase Loop</div>
+                    </div>
+                </div>
+
+                <div class="me80-container-left">
+                    <span class="type-label-main">Type</span>
+
+                    <div class="type-labels-outer-container">
+                        <div class="col-names-left">
+                            <span class="amp-label active" data-label="1-99ms">1-99ms</span>
+                            <span class="amp-label" data-label="100-500ms">100-500ms</span>
+                            <span class="amp-label" data-label="500-6000ms">500-6000ms</span>
+                            <span class="amp-label" data-label="analog">Analog</span>
+                            <span class="amp-label" data-label="tape">Tape</span>
+                            <span class="amp-label" data-label="modulate">Modulate</span>
+                        </div>
+
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                        </div>
+
+                        <div class="col-names-right">
+                            <span class="amp-label" data-label="reverse">Reverse</span>
+                            <span class="amp-label" data-label="cho-delay">Cho + Delay</span>
+                            <span class="amp-label" data-label="tempo">Tempo</span>
+                            <span class="amp-label" data-label="tera-echo">Tera Echo</span>
+                            <span class="amp-label" data-label="phrase-loop">Phrase Loop</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bottom-knobs-row">
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Time</span>
+                    </div>
+                    <div class="knob" data-knob="time" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="text" class="value-input value-input--wide" data-input="time" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Feedback</span>
+                    </div>
+                    <div class="knob" data-knob="feedback" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="feedback" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Level</span>
+                    </div>
+                    <div class="knob" data-knob="level" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="level" min="1" max="100" value="35">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===================== BLOC 6 : REVERB / PEDAL FX ===================== -->
+    <div class="effect-block" id="block-reverb-pedalfx" data-block-id="reverb-pedalfx">
+
+        <div class="dual-columns-row">
+
+            <!-- Colonne REVERBE -->
+            <div class="column" id="col-reverb">
+                <div class="col-title">Reverbe</div>
+
+                <div class="power-control">
+                    <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver la Reverb">
+                        <span class="power-symbol"></span>
+                    </button>
+                    <div class="led-indicator active" data-role="powerLed"></div>
+                </div>
+
+                <div class="mini-content" data-role="miniContent">
+                    <div class="custom-select-wrapper" data-role="selectWrapper">
+                        <div class="custom-select-trigger" data-role="selectTrigger">
+                            <span data-role="triggerText">Hall</span>
+                        </div>
+                        <div class="custom-options">
+                            <div class="custom-option selected" data-value="hall" data-angle="-45">Hall</div>
+                            <div class="custom-option" data-value="room" data-angle="0">Room</div>
+                            <div class="custom-option" data-value="spring" data-angle="45">Spring</div>
+                        </div>
+                    </div>
+
+                    <div class="mini-knob-container">
+                        <span class="amp-label mini-label-top active" data-label="hall">Hall</span>
+                        <span class="amp-label mini-label-bl" data-label="room">Room</span>
+                        <span class="amp-label mini-label-br" data-label="spring">Spring</span>
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="bottom-knobs-row">
+                        <div class="knob-wrapper" style="width: auto;">
+                            <div class="knob-label-container">
+                                <span class="knob-label-main">Level</span>
+                            </div>
+                            <div class="knob" data-knob="reverb-level" style="transform: rotate(-135deg);"><div class="knob-top"></div></div>
+                            <input type="number" class="value-input" data-input="reverb-level" min="1" max="100" value="100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne PEDAL FX -->
+            <div class="column" id="col-pedalfx">
+                <div class="col-title">Pedal FX</div>
+
+                <div class="power-control">
+                    <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver Pedal FX">
+                        <span class="power-symbol"></span>
+                    </button>
+                    <div class="led-indicator active" data-role="powerLed"></div>
+                </div>
+
+                <div class="mini-content" data-role="miniContent">
+                    <div class="custom-select-wrapper" data-role="selectWrapper">
+                        <div class="custom-select-trigger" data-role="selectTrigger">
+                            <span data-role="triggerText">Freeze</span>
+                        </div>
+                        <div class="custom-options">
+                            <div class="custom-option selected" data-value="freeze">Freeze</div>
+                            <div class="custom-option" data-value="wah">Wah</div>
+                            <div class="custom-option" data-value="voice">Voice</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-title" style="margin-top: 20px;">Output Level</div>
+                <div class="bottom-knobs-row">
+                    <div class="knob-wrapper" style="width: auto;">
+                        <div class="knob" data-knob="output-level" style="transform: rotate(-135deg);"><div class="knob-top"></div></div>
+                        <input type="number" class="value-input" data-input="output-level" min="1" max="100" value="100">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ===================== BLOC : EXPORT / IMPORT DES PRESETS ===================== -->
+    <div class="effect-block" id="block-preset-io" data-block-id="preset-io">
+
+        <div class="header-container">
+            <div style="width: 38px;"></div>
+            <div class="block-title">Export / Import</div>
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="preset-io-section">
+            <textarea class="preset-textarea" id="presetIOArea" placeholder="Cliquez sur Exporter pour voir vos presets ici (copiez-les dans Notes), ou collez-les ici puis cliquez sur Importer."></textarea>
+            <div class="preset-buttons-row">
+                <button class="preset-btn" id="exportPresetsBtn">Exporter</button>
+                <button class="preset-btn" id="importPresetsBtn">Importer</button>
+            </div>
+            <div class="preset-io-status" id="presetIOStatus"></div>
+        </div>
+
+    </div>
+
+    <!-- fin .app-scroll -->
+    </div>
+
+    <script>
+        // ============================================================
+        // Système générique : chaque bloc d'effet est initialisé à partir
+        // de son conteneur .effect-block + un objet de configuration
+        // (liste des positions du sélecteur "Type"). Le reste (power btn,
+        // knobs, dropdown) fonctionne pareil pour tous les blocs, donc
+        // pas besoin de dupliquer le JS pour chaque nouvel effet.
+        // ============================================================
+
+        function initEffectBlock(rootEl, typeSettings) {
+            const powerBtn = rootEl.querySelector('[data-role="powerBtn"]');
+            const powerLed = rootEl.querySelector('[data-role="powerLed"]');
+
+            powerBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.classList.toggle('active');
+                powerLed.classList.toggle('active');
+                rootEl.classList.toggle('bypass');
+            });
+
+            const selectWrapper = rootEl.querySelector('[data-role="selectWrapper"]');
+            const selectTrigger = rootEl.querySelector('[data-role="selectTrigger"]');
+            const triggerText = rootEl.querySelector('[data-role="triggerText"]');
+            const typeKnob = rootEl.querySelector('[data-role="typeKnob"]');
+            const options = rootEl.querySelectorAll('.custom-option');
+
+            selectTrigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selectWrapper.classList.toggle('open');
+            });
+
+            options.forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const value = this.getAttribute('data-value');
+                    const setting = typeSettings[value];
+
+                    if (setting) {
+                        triggerText.textContent = this.textContent;
+                        typeKnob.style.transform = `rotate(${setting.angle}deg)`;
+
+                        rootEl.querySelectorAll('.amp-label').forEach(label => {
+                            label.classList.remove('active');
+                        });
+                        rootEl.querySelector(`[data-label="${value}"]`).classList.add('active');
+
+                        options.forEach(opt => opt.classList.remove('selected'));
+                        this.classList.add('selected');
+                    }
+                    selectWrapper.classList.remove('open');
+                });
+            });
+
+            // Ferme le dropdown seulement s'il appartient à ce bloc
+            document.addEventListener('click', function() {
+                selectWrapper.classList.remove('open');
+            });
+
+            function updateKnobRotation(knobEl, value) {
+                if (!knobEl) return;
+                let val = Math.max(1, Math.min(100, value));
+                const angle = -135 + ((val - 1) / 99) * 270;
+                knobEl.style.transform = `rotate(${angle}deg)`;
+            }
+
+            rootEl.querySelectorAll('[data-input]').forEach(inputEl => {
+                const id = inputEl.getAttribute('data-input');
+                const knobEl = rootEl.querySelector(`[data-knob="${id}"]`);
+                const isFreeText = inputEl.type === 'text';
+
+                updateKnobRotation(knobEl, inputEl.value);
+
+                inputEl.addEventListener('input', function() {
+                    let val = parseInt(this.value);
+                    if (isNaN(val)) {
+                        if (isFreeText) return; // laisse les lettres tranquilles, ne touche pas au knob
+                        val = 1;
+                    }
+                    updateKnobRotation(knobEl, val);
+                });
+
+                inputEl.addEventListener('blur', function() {
+                    if (isFreeText) {
+                        // Champ libre (chiffres + lettres) : on ne réécrit jamais ce que la personne a tapé
+                        const val = parseInt(this.value);
+                        if (!isNaN(val)) {
+                            updateKnobRotation(knobEl, Math.max(1, Math.min(100, val)));
+                        }
+                        return;
+                    }
+                    if (this.value === "" || isNaN(parseInt(this.value))) {
+                        this.value = 1;
+                    }
+                    let val = Math.max(1, Math.min(100, parseInt(this.value)));
+                    this.value = val;
+                    updateKnobRotation(knobEl, val);
+                });
+            });
+        }
+
+        // Positions du sélecteur "Type" pour chaque bloc
+        const compSettings = {
+            'comp':        { angle: -135 },
+            'twah-up':     { angle: -108 },
+            'twah-down':   { angle: -81 },
+            'octave':      { angle: -54 },
+            'slow-gear':   { angle: -27 },
+            'defretter':   { angle: 0 },
+            'ring-mod':    { angle: 27 },
+            'ac-sim':      { angle: 54 },
+            'single-hum':  { angle: 81 },
+            'hum-single':  { angle: 108 },
+            'solo':        { angle: 135 }
+        };
+
+        const odDsSettings = {
+            'boost':      { angle: -135 },
+            'overdrive':  { angle: -108 },
+            't-scream':   { angle: -81 },
+            'blues':      { angle: -54 },
+            'turbo-od':   { angle: -27 },
+            'distortion': { angle: 0 },
+            'turbo-ds':   { angle: 27 },
+            'metal-ds':   { angle: 54 },
+            'core':       { angle: 81 },
+            'fuzz':       { angle: 108 },
+            'oct-fuzz':   { angle: 135 }
+        };
+
+        const eqSettings = {
+            'phaser':  { angle: 35 },
+            'tremolo': { angle: 55 },
+            'boost':   { angle: 75 },
+            'delay':   { angle: 95 },
+            'chorus':  { angle: 115 },
+            'eq':      { angle: 135 }
+        };
+
+        const modSettings = {
+            'pitch-shift': { angle: -20 },
+            'vibrato':     { angle: -30 },
+            'chorus':      { angle: -60 },
+            'tremolo':     { angle: -90 },
+            'flanger':     { angle: -108 },
+            'phaser':      { angle: -135 },
+            'harmonist':   { angle: 27 },
+            'rotary':      { angle: 54 },
+            'uni-v':       { angle: 81 },
+            'delay':       { angle: 108 },
+            'overtone':    { angle: 135 }
+        };
+
+        const delaySettings = {
+            'modulate':     { angle: -135 },
+            'tape':         { angle: -108 },
+            'analog':       { angle: -81 },
+            '500-6000ms':   { angle: -54 },
+            '100-500ms':    { angle: -27 },
+            '1-99ms':       { angle: 0 },
+            'reverse':      { angle: 27 },
+            'cho-delay':    { angle: 54 },
+            'tempo':        { angle: 81 },
+            'tera-echo':    { angle: 108 },
+            'phrase-loop':  { angle: 135 }
+        };
+
+        // ============================================================
+        // Bloc REVERB / PEDAL FX : structure à deux mini-colonnes
+        // indépendantes (chacune avec son propre power/LED), donc
+        // initialisée séparément du système standard à un seul bypass.
+        // ============================================================
+        function initDualColumnBlock(rootEl) {
+            rootEl.querySelectorAll('.column').forEach(col => {
+                const powerBtn = col.querySelector('[data-role="powerBtn"]');
+                const powerLed = col.querySelector('[data-role="powerLed"]');
+                const miniContent = col.querySelector('[data-role="miniContent"]');
+
+                powerBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    this.classList.toggle('active');
+                    powerLed.classList.toggle('active');
+                    if (miniContent) miniContent.classList.toggle('bypass-mini');
+                });
+            });
+
+            rootEl.querySelectorAll('[data-role="selectWrapper"]').forEach(wrapper => {
+                const trigger = wrapper.querySelector('[data-role="selectTrigger"]');
+                const triggerText = wrapper.querySelector('[data-role="triggerText"]');
+                const options = wrapper.querySelectorAll('.custom-option');
+                const parentContent = wrapper.closest('.mini-content');
+
+                trigger.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    wrapper.classList.toggle('open');
+                });
+
+                options.forEach(option => {
+                    option.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        triggerText.textContent = this.textContent;
+
+                        options.forEach(opt => opt.classList.remove('selected'));
+                        this.classList.add('selected');
+
+                        const angle = this.getAttribute('data-angle');
+                        if (angle !== null && parentContent) {
+                            const typeKnob = parentContent.querySelector('[data-role="typeKnob"]');
+                            if (typeKnob) typeKnob.style.transform = `rotate(${angle}deg)`;
+
+                            const value = this.getAttribute('data-value');
+                            parentContent.querySelectorAll('.amp-label').forEach(l => l.classList.remove('active'));
+                            const lbl = parentContent.querySelector(`[data-label="${value}"]`);
+                            if (lbl) lbl.classList.add('active');
+                        }
+
+                        wrapper.classList.remove('open');
+                    });
+                });
+            });
+
+            document.addEventListener('click', function() {
+                rootEl.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
+            });
+
+            function updateKnobRotation(knobEl, value) {
+                if (!knobEl) return;
+                let val = Math.max(1, Math.min(100, value));
+                const angle = -135 + ((val - 1) / 99) * 270;
+                knobEl.style.transform = `rotate(${angle}deg)`;
+            }
+
+            rootEl.querySelectorAll('[data-input]').forEach(inputEl => {
+                const id = inputEl.getAttribute('data-input');
+                const knobEl = rootEl.querySelector(`[data-knob="${id}"]`);
+
+                updateKnobRotation(knobEl, inputEl.value);
+
+                inputEl.addEventListener('input', function() {
+                    let val = parseInt(this.value);
+                    if (isNaN(val)) val = 1;
+                    updateKnobRotation(knobEl, val);
+                });
+
+                inputEl.addEventListener('blur', function() {
+                    if (this.value === "" || isNaN(parseInt(this.value))) {
+                        this.value = 1;
+                    }
+                    let val = Math.max(1, Math.min(100, parseInt(this.value)));
+                    this.value = val;
+                    updateKnobRotation(knobEl, val);
+                });
+            });
+        }
+
+        initEffectBlock(document.getElementById('block-comp'), compSettings);
+        initEffectBlock(document.getElementById('block-oddS'), odDsSettings);
+        initEffectBlock(document.getElementById('block-eq'), eqSettings);
+        initEffectBlock(document.getElementById('block-mod'), modSettings);
+        initEffectBlock(document.getElementById('block-delay'), delaySettings);
+        initDualColumnBlock(document.getElementById('block-reverb-pedalfx'));
+
+        // ============================================================
+        // SYSTÈME DE PRESETS (enregistrer / charger / supprimer)
+        // Sauvegarde dans localStorage : power (bypass), type choisi,
+        // et valeur de chaque potentiomètre, pour chaque bloc/colonne.
+        // ============================================================
+        const PRESETS_STORAGE_KEY = 'mooerEffectsPresetsV1';
+        let currentPresetName = null;
+
+        function loadAllPresets() {
+            try {
+                const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                console.error('Erreur de lecture des presets :', e);
+                return {};
+            }
+        }
+
+        function saveAllPresets(presets) {
+            try {
+                localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+            } catch (e) {
+                console.error('Erreur de sauvegarde des presets :', e);
+            }
+        }
+
+        // ---- Collecte de l'état actuel de tous les blocs ----
+        function captureStandardBlockState(block) {
+            const powerBtn = block.querySelector('[data-role="powerBtn"]');
+            const selectedOption = block.querySelector('.custom-option.selected');
+            const knobs = {};
+            block.querySelectorAll('[data-input]').forEach(input => {
+                knobs[input.getAttribute('data-input')] = input.value;
+            });
+            return {
+                active: powerBtn ? powerBtn.classList.contains('active') : true,
+                type: selectedOption ? selectedOption.getAttribute('data-value') : null,
+                knobs: knobs
+            };
+        }
+
+        function collectPedalState() {
+            const state = {};
+
+            document.querySelectorAll('.effect-block[data-block-id]').forEach(block => {
+                const blockId = block.getAttribute('data-block-id');
+
+                if (blockId === 'reverb-pedalfx') {
+                    block.querySelectorAll('.column').forEach(col => {
+                        state[col.id] = captureStandardBlockState(col);
+                    });
+                } else {
+                    state[blockId] = captureStandardBlockState(block);
+                }
+            });
+
+            return state;
+        }
+
+        // ---- Application d'un état sauvegardé ----
+        function restoreStandardBlockState(block, blockState) {
+            if (!blockState) return;
+
+            const powerBtn = block.querySelector('[data-role="powerBtn"]');
+            if (powerBtn) {
+                const isActive = powerBtn.classList.contains('active');
+                if (isActive !== blockState.active) {
+                    powerBtn.click();
+                }
+            }
+
+            if (blockState.type) {
+                const optionEl = block.querySelector(`.custom-option[data-value="${blockState.type}"]`);
+                if (optionEl) optionEl.click();
+            }
+
+            if (blockState.knobs) {
+                Object.keys(blockState.knobs).forEach(inputId => {
+                    const inputEl = block.querySelector(`[data-input="${inputId}"]`);
+                    if (inputEl) {
+                        inputEl.value = blockState.knobs[inputId];
+                        inputEl.dispatchEvent(new Event('input'));
+                        inputEl.dispatchEvent(new Event('blur'));
+                    }
+                });
+            }
+        }
+
+        function applyPedalState(state) {
+            if (!state) return;
+
+            document.querySelectorAll('.effect-block[data-block-id]').forEach(block => {
+                const blockId = block.getAttribute('data-block-id');
+
+                if (blockId === 'reverb-pedalfx') {
+                    block.querySelectorAll('.column').forEach(col => {
+                        restoreStandardBlockState(col, state[col.id]);
+                    });
+                } else {
+                    restoreStandardBlockState(block, state[blockId]);
+                }
+            });
+        }
+
+        // ---- Rendu de la liste déroulante des presets ----
+        const presetSelectWrapper = document.getElementById('presetSelectWrapper');
+        const presetSelectTrigger = document.getElementById('presetSelectTrigger');
+        const presetSelectText = document.getElementById('presetSelectText');
+        const presetOptionsList = document.getElementById('presetOptionsList');
+        const deletePresetBtn = document.getElementById('deletePresetBtn');
+
+        function refreshPresetDropdown() {
+            const presets = loadAllPresets();
+            const names = Object.keys(presets).sort((a, b) => a.localeCompare(b));
+
+            presetOptionsList.innerHTML = '';
+
+            if (names.length === 0) {
+                const emptyOpt = document.createElement('div');
+                emptyOpt.className = 'custom-option';
+                emptyOpt.style.color = '#555';
+                emptyOpt.style.cursor = 'default';
+                emptyOpt.textContent = 'Aucun preset enregistré';
+                presetOptionsList.appendChild(emptyOpt);
+            }
+
+            names.forEach(name => {
+                const opt = document.createElement('div');
+                opt.className = 'custom-option' + (name === currentPresetName ? ' selected' : '');
+                opt.setAttribute('data-value', name);
+                opt.textContent = name;
+                opt.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    currentPresetName = name;
+                    presetSelectText.textContent = name;
+                    applyPedalState(presets[name]);
+                    presetSelectWrapper.classList.remove('open');
+                    refreshPresetDropdown();
+                    deletePresetBtn.disabled = false;
+                });
+                presetOptionsList.appendChild(opt);
+            });
+
+            if (!currentPresetName) {
+                presetSelectText.textContent = '-- Aucun preset --';
+                deletePresetBtn.disabled = true;
+            }
+        }
+
+        presetSelectTrigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            presetSelectWrapper.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function() {
+            presetSelectWrapper.classList.remove('open');
+        });
+
+        // ---- Modale Enregistrer ----
+        const saveModalOverlay = document.getElementById('saveModalOverlay');
+        const presetNameInput = document.getElementById('presetNameInput');
+        const savePresetBtn = document.getElementById('savePresetBtn');
+        const saveModalCancel = document.getElementById('saveModalCancel');
+        const saveModalConfirm = document.getElementById('saveModalConfirm');
+
+        savePresetBtn.addEventListener('click', function() {
+            presetNameInput.value = currentPresetName || '';
+            saveModalOverlay.classList.add('open');
+            setTimeout(() => presetNameInput.focus(), 50);
+        });
+
+        saveModalCancel.addEventListener('click', function() {
+            saveModalOverlay.classList.remove('open');
+        });
+
+        function confirmSavePreset() {
+            const name = presetNameInput.value.trim();
+            if (!name) {
+                presetNameInput.focus();
+                return;
+            }
+
+            const presets = loadAllPresets();
+            presets[name] = collectPedalState();
+            saveAllPresets(presets);
+
+            currentPresetName = name;
+            saveModalOverlay.classList.remove('open');
+            refreshPresetDropdown();
+        }
+
+        saveModalConfirm.addEventListener('click', confirmSavePreset);
+        presetNameInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') confirmSavePreset();
+        });
+
+        // ---- Modale Supprimer ----
+        const deleteModalOverlay = document.getElementById('deleteModalOverlay');
+        const deleteModalText = document.getElementById('deleteModalText');
+        const deleteModalCancel = document.getElementById('deleteModalCancel');
+        const deleteModalConfirm = document.getElementById('deleteModalConfirm');
+
+        deletePresetBtn.addEventListener('click', function() {
+            if (!currentPresetName) return;
+            deleteModalText.textContent = `« ${currentPresetName} » sera supprimé définitivement.`;
+            deleteModalOverlay.classList.add('open');
+        });
+
+        deleteModalCancel.addEventListener('click', function() {
+            deleteModalOverlay.classList.remove('open');
+        });
+
+        deleteModalConfirm.addEventListener('click', function() {
+            if (!currentPresetName) return;
+
+            const presets = loadAllPresets();
+            delete presets[currentPresetName];
+            saveAllPresets(presets);
+
+            currentPresetName = null;
+            deleteModalOverlay.classList.remove('open');
+            refreshPresetDropdown();
+        });
+
+        // Empêche la fermeture des modales quand on clique à l'intérieur de la boîte
+        document.querySelectorAll('.modal-box').forEach(box => {
+            box.addEventListener('click', e => e.stopPropagation());
+        });
+
+        // Initialisation au chargement de la page
+        refreshPresetDropdown();
+
+        // ============================================================
+        // EXPORT / IMPORT des presets en texte (pour copier/coller
+        // dans une app comme Notes, en cas de perte des données)
+        // ============================================================
+        const presetIOArea = document.getElementById('presetIOArea');
+        const exportPresetsBtn = document.getElementById('exportPresetsBtn');
+        const importPresetsBtn = document.getElementById('importPresetsBtn');
+        const presetIOStatus = document.getElementById('presetIOStatus');
+
+        function setIOStatus(message, type) {
+            presetIOStatus.textContent = message;
+            presetIOStatus.className = 'preset-io-status' + (type ? ' ' + type : '');
+        }
+
+        exportPresetsBtn.addEventListener('click', function() {
+            const presets = loadAllPresets();
+            const names = Object.keys(presets);
+
+            if (names.length === 0) {
+                presetIOArea.value = '';
+                setIOStatus('Aucun preset à exporter pour le moment.', 'error');
+                return;
+            }
+
+            presetIOArea.value = JSON.stringify(presets, null, 2);
+            presetIOArea.focus();
+            presetIOArea.select();
+            setIOStatus(names.length + ' preset(s) exporté(s) ci-dessus — copiez le texte (ex. dans Notes).', 'success');
+        });
+
+        importPresetsBtn.addEventListener('click', function() {
+            const raw = presetIOArea.value.trim();
+
+            if (!raw) {
+                setIOStatus('Collez d\'abord vos presets dans le rectangle ci-dessus.', 'error');
+                return;
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                setIOStatus('Texte invalide : vérifiez que rien n\'a été coupé en collant.', 'error');
+                return;
+            }
+
+            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                setIOStatus('Texte invalide : ce n\'est pas une liste de presets reconnue.', 'error');
+                return;
+            }
+
+            const existing = loadAllPresets();
+            const merged = Object.assign({}, existing, parsed);
+            saveAllPresets(merged);
+            refreshPresetDropdown();
+
+            const count = Object.keys(parsed).length;
+            setIOStatus(count + ' preset(s) importé(s) avec succès et ajoutés à la liste.', 'success');
+        });
+
+        // ============================================================
+        // Ajuste la position du conteneur de scroll (.app-scroll) pour
+        // qu'il commence toujours juste sous la barre de presets, peu
+        // importe sur combien de lignes elle s'affiche (1, 2 ou 3
+        // selon la largeur de l'écran, ex. iPhone).
+        // ============================================================
+        function adjustScrollAreaOffset() {
+            const bar = document.querySelector('.preset-bar');
+            const scrollArea = document.getElementById('appScroll');
+            if (bar && scrollArea) {
+                scrollArea.style.top = bar.offsetHeight + 'px';
+            }
+        }
+
+        adjustScrollAreaOffset();
+        window.addEventListener('resize', adjustScrollAreaOffset);
+        window.addEventListener('orientationchange', function() {
+            setTimeout(adjustScrollAreaOffset, 150);
+        });
+
+        // ============================================================
+        // MODE CLAIR / MODE SOMBRE
+        // ============================================================
+        const THEME_STORAGE_KEY = 'mooerThemePreferenceV1';
+        const lightModeBtn = document.getElementById('lightModeBtn');
+        const darkModeBtn = document.getElementById('darkModeBtn');
+
+        function setTheme(theme) {
+            document.documentElement.classList.toggle('light-theme', theme === 'light');
+            lightModeBtn.classList.toggle('active-theme', theme === 'light');
+            darkModeBtn.classList.toggle('active-theme', theme === 'dark');
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, theme);
+            } catch (e) {
+                console.error('Impossible d\'enregistrer la préférence de thème :', e);
+            }
+        }
+
+        lightModeBtn.addEventListener('click', () => setTheme('light'));
+        darkModeBtn.addEventListener('click', () => setTheme('dark'));
+
+        // Restaure le thème choisi précédemment (sombre par défaut)
+        let savedTheme = 'dark';
+        try {
+            savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'dark';
+        } catch (e) {
+            savedTheme = 'dark';
+        }
+        setTheme(savedTheme);
+    </script>
+
+</body>
+</html>
