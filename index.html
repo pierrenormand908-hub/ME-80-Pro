@@ -6,14 +6,14 @@
     <title>Blocs d'effets ME-80</title>
 
     <!-- Icône affichée sur l'écran d'accueil de l'iPhone (remplace le nom de fichier ci-dessous) -->
-    <link rel="apple-touch-icon" href="Fender-Twin.png">
+    <link rel="apple-touch-icon" href="icone-mooer.png">
 
     <!-- Fait tourner l'app en plein écran, sans la barre d'adresse Safari, quand elle est lancée depuis l'écran d'accueil -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <!-- Nom affiché sous l'icône sur l'écran d'accueil -->
-    <meta name="apple-mobile-web-app-title" content="ME-80-Pro">
+    <meta name="apple-mobile-web-app-title" content="Mooer Effects">
     <style>
         html, body {
             height: 100%;
@@ -837,6 +837,10 @@
             width: 22%;
         }
 
+        .knob-wrapper.knob-wrapper--five {
+            width: 18%;
+        }
+
         /* ============================================================
            Bloc MOD : même structure que COMP/FX1 et OD/DS (mise en page
            "stacked" par défaut), mais avec un accent orange/rouge au
@@ -1163,6 +1167,116 @@
 
     <!-- Conteneur de scroll séparé (voir explication CSS .app-scroll) -->
     <div class="app-scroll" id="appScroll">
+
+    <!-- ===================== BLOC 0 : PREAMP ===================== -->
+    <div class="effect-block layout-inline" id="block-preamp" data-block-id="preamp">
+
+        <div class="header-container">
+            <div class="power-control">
+                <button class="power-btn active" data-role="powerBtn" title="Activer/Désactiver le Preamp">
+                    <span class="power-symbol"></span>
+                </button>
+                <div class="led-indicator active" data-role="powerLed"></div>
+            </div>
+
+            <div class="block-title">Preamp</div>
+
+            <div style="width: 65px;"></div>
+        </div>
+
+        <div class="main-layout">
+
+            <div class="type-section-row">
+
+                <div class="me80-container-left">
+                    <span class="type-label-main">Type</span>
+
+                    <div class="type-labels-outer-container">
+                        <div class="col-names-left">
+                            <span class="amp-label" data-label="stack">Stack</span>
+                            <span class="amp-label" data-label="drive">Drive</span>
+                            <span class="amp-label" data-label="lead">Lead</span>
+                            <span class="amp-label" data-label="combo">Combo</span>
+                            <span class="amp-label" data-label="crunch">Crunch</span>
+                            <span class="amp-label" data-label="tweed">Tweed</span>
+                            <span class="amp-label active" data-label="clean">Clean</span>
+                        </div>
+
+                        <div class="knob-container">
+                            <div class="knob" data-role="typeKnob" style="transform: rotate(-135deg);"><div class="knob-top"></div></div>
+                        </div>
+
+                        <div class="col-names-right">
+                            <span class="amp-label" data-label="metal">Metal</span>
+                            <span class="amp-label" data-label="ac">AC</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="custom-select-wrapper" data-role="selectWrapper">
+                    <div class="custom-select-trigger" data-role="selectTrigger">
+                        <span data-role="triggerText">Clean</span>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option" data-value="stack">Stack</div>
+                        <div class="custom-option" data-value="drive">Drive</div>
+                        <div class="custom-option" data-value="lead">Lead</div>
+                        <div class="custom-option" data-value="combo">Combo</div>
+                        <div class="custom-option" data-value="crunch">Crunch</div>
+                        <div class="custom-option" data-value="tweed">Tweed</div>
+                        <div class="custom-option selected" data-value="clean">Clean</div>
+                        <div class="custom-option" data-value="metal">Metal</div>
+                        <div class="custom-option" data-value="ac">AC</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="bottom-knobs-row">
+                <div class="knob-wrapper knob-wrapper--five">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Gain</span>
+                    </div>
+                    <div class="knob" data-knob="gain" style="transform: rotate(-135deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="gain" min="1" max="100" value="1">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--five">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Bass</span>
+                    </div>
+                    <div class="knob" data-knob="bass" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="bass" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--five">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Middle</span>
+                    </div>
+                    <div class="knob" data-knob="middle" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="middle" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--five">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Treble</span>
+                    </div>
+                    <div class="knob" data-knob="treble" style="transform: rotate(0deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="treble" min="1" max="100" value="50">
+                </div>
+
+                <div class="knob-wrapper knob-wrapper--five">
+                    <div class="knob-label-container">
+                        <span class="knob-label-main">Level</span>
+                    </div>
+                    <div class="knob" data-knob="level" style="transform: rotate(-45deg);"><div class="knob-top"></div></div>
+                    <input type="number" class="value-input" data-input="level" min="1" max="100" value="35">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
 
     <!-- ===================== BLOC 1 : COMP / FX1 ===================== -->
     <div class="effect-block" id="block-comp" data-block-id="comp">
@@ -1864,6 +1978,18 @@
         }
 
         // Positions du sélecteur "Type" pour chaque bloc
+        const preampSettings = {
+            'clean':  { angle: -135 },
+            'tweed':  { angle: -115 },
+            'crunch': { angle: -95 },
+            'combo':  { angle: -75 },
+            'lead':   { angle: -55 },
+            'drive':  { angle: -35 },
+            'stack':  { angle: -15 },
+            'metal':  { angle: 45 },
+            'ac':     { angle: 135 }
+        };
+
         const compSettings = {
             'comp':        { angle: -135 },
             'twah-up':     { angle: -108 },
@@ -2017,6 +2143,7 @@
             });
         }
 
+        initEffectBlock(document.getElementById('block-preamp'), preampSettings);
         initEffectBlock(document.getElementById('block-comp'), compSettings);
         initEffectBlock(document.getElementById('block-oddS'), odDsSettings);
         initEffectBlock(document.getElementById('block-eq'), eqSettings);
